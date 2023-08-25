@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/qgis2web.css"><link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <style>
+        #map {
+            width: 1271px;
+            height: 717px;
+        }
+        html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+.controls {  
+  position: absolute;
+  top: 10px;
+  left: 50px;
+  z-index: 400;
+  padding: 10px;
+}
+.fcc {
+  display: none;
+  position: absolute;
+  left: 50px;
+  bottom: 15px;
+  z-index: 450;
+  width: 150px;
+  text-align: right;
+  background-color: #00ff00;
+}
+.fc {
+  height: 150px;
+  width: 100%;
+}
+
+.pcc {
+  width: 150px;
+}
+
+.pc {
+  display: none;
+  height: 150px;
+  width: 100%;
+}
+.leaflet-tooltip-left:before {
+    right: 0;
+    margin-right: -12px;
+    border-left-color: rgba(0, 0, 0, 0.4);
+}
+.leaflet-tooltip-right:before {
+    left: 0;
+    margin-left: -12px;
+    border-right-color: rgba(0, 0, 0, 0.4);
+    }
+.leaflet-tooltip-own {
+    position: absolute;
+    padding: 4px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border: 0px solid #000;
+    color: #000;
+    white-space: nowrap;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+        </style>
+        <title></title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script>
+        const crs = L.CRS.Simple;
+//https://gis.stackexchange.com/questions/427986/leaflet-crs-simple-transformation-for-real-life-measurement
+// const width = 6144;
+// const height = 6144;
+// const dpiX = (256 / width * Math.pow(2, 5)) * 1;
+// const dpiY = (256 / height * Math.pow(2, 5)) * 1;
+//   const factorX = 1 / (1 / dpiX );
+//   const factorY = 1 / (1 / dpiY );
+//   console.log(factorX, factorY);
+  // @ts-ignore
+   crs.transformation = new L.Transformation(0.021, 0, 0.021, 1);
+            var map = L.map('map',{crs: L.CRS.Simple}).setView([0, 0], 2);
+            var bnd = [map.layerPointToLatLng([-0,-0]), map.layerPointToLatLng([1000,1000])];
+            L.tileLayer('assets/tiles/{z}/{x}/{y}.png', {
+                continuousWorld: false,
+                noWrap: true,
+                minZoom: 2,
+                maxZoom: 5,
+                tileSize: 128,
+                bounds: bnd,
+                //zoomReverse: true
+            }).addTo(map);
+
+            //https://gis.stackexchange.com/questions/331360/leaflet-mouse-move-to-get-coordinate
+let Position = L.Control.extend({ 
+        _container: null,
+        options: {
+          position: 'bottomleft'
+        },
+
+        onAdd: function (map) {
+          var latlng = L.DomUtil.create('div', 'mouseposition');
+          this._latlng = latlng;
+          return latlng;
+        },
+
+        updateHTML: function(lat, lng) {
+          var latlng = lat + " " + lng;
+          //this._latlng.innerHTML = "Latitude: " + lat + "   Longitiude: " + lng;
+          this._latlng.innerHTML = "LatLng: " + latlng;
+        }
+      });
+      this.position = new Position();
+      map.addControl(this.position);
+      map.addEventListener('mousemove', (event) => {
+        
+    this.position.updateHTML(event.layerPoint, '');
+  }
+);
+function makeAmmo(icon){
+    const ammo = L.icon({
+                // iconUrl: 'assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png',  // Replace with your custom marker image
+                iconUrl: icon,
+                iconSize: [32, 32],  // Adjust the size
+                iconAnchor: [16, 32], // Adjust the anchor point
+            });
+    return ammo
+}
+
+function makeMarker(loc, tooltip, description, icon){
+    
+    const ammo = L.icon({
+                // iconUrl: 'assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png',  // Replace with your custom marker image
+                iconUrl: icon,
+                iconSize: [32, 32],  // Adjust the size
+                iconAnchor: [16, 32], // Adjust the anchor point
+            });
+    var m = L.marker(loc, {icon: ammo})
+    m.bindPopup(description);
+    // m.bindTooltip(tooltip).openTooltip()
+    m.bindTooltip("<div style='background:white; padding:1px 3px 1px 3px'><b>" + tooltip + "</b></div>", 
+{
+    direction: 'right',
+    permanent: false,
+    sticky: true,
+    offset: [10, 0],
+    opacity: 0.75,
+    className: 'leaflet-tooltip-own' 
+});
+    m.addTo(map)
+}
+
+// makeMarker([{dx},{dy}],'{tooltip}','{desc}','{icon}')
+makeMarker([3329,3056],'<MISSING STRING TABLE ENTRY>\n<MISSING STRING TABLE ENTRY>','Stage_1_LowerVillage','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Attack.png')
+makeMarker([3334,3054],'<MISSING STRING TABLE ENTRY>\n<MISSING STRING TABLE ENTRY>','Stage_2_GateUpperVillage','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Attack.png')
+makeMarker([3338,3049],'<MISSING STRING TABLE ENTRY>\n<MISSING STRING TABLE ENTRY>','Stage_3_UpperVillage','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Attack.png')
+makeMarker([3344,3044],'<MISSING STRING TABLE ENTRY>\n<MISSING STRING TABLE ENTRY>','Stage_4_Market','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Attack.png')
+makeMarker([3348,3039],'<MISSING STRING TABLE ENTRY>\n<MISSING STRING TABLE ENTRY>','Stage_5_Keep','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Attack.png')
+makeMarker([2057,2954],'BURN\nVILLAGE','LowerVillage_House1','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([1566,2649],'BURN\nVILLAGE','LowerVillage_House11','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2469,3018],'BURN\nVILLAGE','LowerVillage_House4','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2220,2598],'BURN\nVILLAGE','LowerVillage_House6','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([1832,2652],'BURN\nVILLAGE','LowerVillage_House9','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([1793,2884],'BURN\nVILLAGE','LowerVillage_House10','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2242,2982],'BURN\nVILLAGE','LowerVillage_House2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2361,2837],'BURN\nVILLAGE','LowerVillage_House3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2136,3187],'BURN\nVILLAGE','LowerVillage_House5','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2023,2396],'BURN\nVILLAGE','LowerVillage_House7','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([2010,2592],'BURN\nVILLAGE','LowerVillage_House8','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_ThrowTorch.png')
+makeMarker([4680,2163],'GATE\nPROTECT','BP_BreakableGate_Coxwell_MarketExitGate_2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([4024,2165],'GATE\nPROTECT','BP_BreakableGate_Market','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([2993,2577],'GATE\nPROTECT','BP_BreakableGate_Town','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([5097,2324],'GATE\nPROTECT','BP_BreakableGate_Town2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([1773,3045],'GATE\nPROTECT','BP_BreakableGate_VillageCenter','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([1939,3225],'GATE\nPROTECT','BP_BreakableGate_VillageLeft','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([1533,2897],'GATE\nPROTECT','BP_BreakableGate_VillageRight','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([3756,2748],'LOOT\nCART','BP_CarryableDropZone_Interactable_Agatha1','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([3639,2025],'LOOT\nCART','BP_CarryableDropZone_Interactable_Agatha2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([3318,2440],'PROTECT\nLOOT','BP_CarryableDropZone_Interactable_Mason','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([2995,2907],'RAMP\nRAISE','BP_Ramp_S2_1','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2955,2795],'RAMP\nRAISE','BP_Ramp_S2_2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2945,2751],'RAMP\nRAISE','BP_Ramp_S2_3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2876,2459],'RAMP\nRAISE','BP_Ramp_S2_4','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2864,2411],'RAMP\nRAISE','BP_Ramp_S2_5','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2844,2287],'RAMP\nRAISE','BP_Ramp_S2_6','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([4574,2260],'RAMP\nRAISE','BP_Ramp_S5_1','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([4684,2074],'RAMP\nRAISE','BP_Ramp_S5_2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([4924,2431],'RAMP\nRAISE','BP_Ramp_S5_3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([5003,2169],'RAMP\nRAISE','BP_Ramp_S5_4','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([5038,2118],'RAMP\nRAISE','BP_Ramp_S5_5','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ladder.png')
+makeMarker([2165,2828],'DEFEND\nFIREPIT','BP_WeaponRack_FirePit_Left','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([2020,2709],'DEFEND\nFIREPIT','BP_WeaponRack_FirePit_Right','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([4236,1959],'TAKE\nLOOT','Loot_Market_100','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4315,2086],'TAKE\nLOOT','Loot_Market_101','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4334,2107],'TAKE\nLOOT','Loot_Market_102','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4438,1933],'TAKE\nLOOT','Loot_Market_103','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4508,2114],'TAKE\nLOOT','Loot_Market_104','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4315,2106],'TAKE\nLOOT','Loot_Market_105','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4479,2182],'TAKE\nLOOT','Loot_Market_106','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4384,1997],'TAKE\nLOOT','Loot_Market_107','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4338,2087],'TAKE\nLOOT','Loot_Market_108','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4326,2111],'TAKE\nLOOT','Loot_Market_109','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4377,1996],'TAKE\nLOOT','Loot_Market_110','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4296,2208],'TAKE\nLOOT','Loot_Market_111','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4494,2166],'TAKE\nLOOT','Loot_Market_112','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4237,2230],'TAKE\nLOOT','Loot_Market_113','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4323,2080],'TAKE\nLOOT','Loot_Market_114','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4382,1913],'TAKE\nLOOT','Loot_Market_115','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4340,1985],'TAKE\nLOOT','Loot_Market_116','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4346,2201],'TAKE\nLOOT','Loot_Market_117','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4269,2245],'TAKE\nLOOT','Loot_Market_118','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4497,2160],'TAKE\nLOOT','Loot_Market_119','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4302,2209],'TAKE\nLOOT','Loot_Market_80','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4288,1990],'TAKE\nLOOT','Loot_Market_81','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4310,2094],'TAKE\nLOOT','Loot_Market_82','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4486,2184],'TAKE\nLOOT','Loot_Market_83','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4260,2005],'TAKE\nLOOT','Loot_Market_84','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4267,1946],'TAKE\nLOOT','Loot_Market_85','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4332,2082],'TAKE\nLOOT','Loot_Market_86','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4420,1916],'TAKE\nLOOT','Loot_Market_87','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4485,2180],'TAKE\nLOOT','Loot_Market_88','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4340,2097],'TAKE\nLOOT','Loot_Market_89','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4510,2119],'TAKE\nLOOT','Loot_Market_90','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4389,1914],'TAKE\nLOOT','Loot_Market_91','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4264,2193],'TAKE\nLOOT','Loot_Market_92','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4388,1998],'TAKE\nLOOT','Loot_Market_93','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4233,1966],'TAKE\nLOOT','Loot_Market_94','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4486,2162],'TAKE\nLOOT','Loot_Market_95','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4246,1947],'TAKE\nLOOT','Loot_Market_96','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4242,2019],'TAKE\nLOOT','Loot_Market_97','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4284,1994],'TAKE\nLOOT','Loot_Market_98','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([4332,1982],'TAKE\nLOOT','Loot_Market_99','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([2217,2868],'BURN\nVILLAGE','MultiActorHUDMarker_BurnableHouse_2','assets/Game/UI/Textures/Icons/Emote/Menu2/Incoming.png')
+makeMarker([3318,2440],'DEPOSIT\nBRING LOOT','ReplicatedHUDMarkerActor','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([3639,2025],'DEPOSIT\nBRING LOOT','ReplicatedHUDMarkerActor2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([3756,2749],'DEPOSIT\nBRING LOOT','ReplicatedHUDMarkerActor3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Loot.png')
+makeMarker([2387,2803],'AMMO\nRESUPPLY','WeaponRack_Ammo10','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3213,2458],'AMMO\nRESUPPLY','WeaponRack_Ammo14','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([5025,2356],'AMMO\nRESUPPLY','WeaponRack_Ammo19','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([5440,2327],'AMMO\nRESUPPLY','WeaponRack_Ammo21','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([5061,2256],'AMMO\nRESUPPLY','WeaponRack_Ammo22','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([5263,2675],'AMMO\nRESUPPLY','WeaponRack_Ammo23','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([5032,2579],'GATE\nPROTECT','BP_BreakableGate_CastleDoor2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([3609,2801],'AMMO\nRESUPPLY','WeaponRack_Ammo11_9','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3500,2438],'AMMO\nRESUPPLY','WeaponRack_Ammo12_10','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4296,2371],'AMMO\nRESUPPLY','WeaponRack_Ammo13_11','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4156,2025],'AMMO\nRESUPPLY','WeaponRack_Ammo15_12','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4522,1986],'AMMO\nRESUPPLY','WeaponRack_Ammo17_13','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4500,2367],'AMMO\nRESUPPLY','WeaponRack_Ammo18_14','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4777,2304],'AMMO\nRESUPPLY','WeaponRack_Ammo20','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([4803,2145],'AMMO\nRESUPPLY','WeaponRack_Ammo24','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([1848,3103],'AMMO\nRESUPPLY','WeaponRack_Ammo2_1','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3795,2429],'AMMO\nRESUPPLY','WeaponRack_Ammo3_2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([1686,2953],'AMMO\nRESUPPLY','WeaponRack_Ammo4_3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([1568,2700],'AMMO\nRESUPPLY','WeaponRack_Ammo5_4','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([2423,2974],'AMMO\nRESUPPLY','WeaponRack_Ammo6_5','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3006,2659],'AMMO\nRESUPPLY','WeaponRack_Ammo7_6','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([2967,2498],'AMMO\nRESUPPLY','WeaponRack_Ammo8_7','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3719,2183],'AMMO\nRESUPPLY','WeaponRack_Ammo9_8','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([2063,2882],'AMMO\nRESUPPLY','WeaponRack_Ammo_0','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3654,2261],'BARRICADE\nDESTROY','BP_DarkforestBarricade_Wall2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Destroy.png')
+makeMarker([3677,2252],'BARRICADE\nDESTROY','BP_DarkforestBarricade_Wall3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Destroy.png')
+makeMarker([3631,2258],'BARRICADE\nDESTROY','BP_DarkforestBarricade_Wall_3','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Destroy.png')
+makeMarker([4345,2363],'AMMO\nRESUPPLY','WeaponRack_Ammo_ArrowBarrel_2','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Ammo.png')
+makeMarker([3537,3020],'HEALTH\nPICKUP','Carryable_BandageKit_C_2147469565','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Bandage.png')
+makeMarker([5433,2473],'SURVIVE\nKEEP','ObjectiveZoneVolume_Keep','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([1991,2745],'PROTECT\nVILLAGE','ObjectiveZoneVolume_LowerVillage','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([4300,2106],'DEFEND\nMARKET','ObjectiveZoneVolume_Market','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([3756,2748],'DEFEND\nVILLAGE','ObjectiveZoneVolume_UpperVillageLeft','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([3385,2403],'PROTECT\nCART','ObjectiveZoneVolume_UpperVillageMason','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+makeMarker([3641,2023],'DEFEND\nVILLAGE','ObjectiveZoneVolume_UpperVillageRight','assets/Game/UI/Textures/Icons/ObjectiveIcons/T_ObjIcon_Defend.png')
+
+
+        </script>
+    </body>
+</html>
