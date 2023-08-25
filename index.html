@@ -100,7 +100,7 @@
 //   const factorY = 1 / (1 / dpiY );
 //   console.log(factorX, factorY);
   // @ts-ignore
-   crs.transformation = new L.Transformation(0.021, 0, 0.021, 1);
+   crs.transformation = new L.Transformation(0.021, 0, 0.021, 0);
             var map = L.map('map',{crs: L.CRS.Simple}).setView([0, 0], 2);
             var bnd = [map.layerPointToLatLng([-0,-0]), map.layerPointToLatLng([1000,1000])];
             L.tileLayer('assets/tiles/{z}/{x}/{y}.png', {
